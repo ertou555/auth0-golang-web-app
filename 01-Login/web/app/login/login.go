@@ -3,6 +3,7 @@ package login
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"golang.org/x/oauth2"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
@@ -28,7 +29,19 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 			return
 		}
 
-		ctx.Redirect(http.StatusTemporaryRedirect, auth.AuthCodeURL(state))
+		invite := make([]oauth2.AuthCodeOption, 0)
+		// 注册用户时必须要带audience，否则生成的token没有audience，即是Opaque access tokens无法使用
+		audience := oauth2.SetAuthURLParam("audience", os.Getenv("AUTH0_AUDIENCE"))
+		invite = append(invite, audience)
+
+		// 被邀请人注册时要带organization和invitation发给auth0。
+		organization := oauth2.SetAuthURLParam("organization", os.Getenv("AUTH0_CALLBACK_URL"))
+		invitation := oauth2.SetAuthURLParam("invitation", "Qy3hMdYyFGEOdnERMNTb7GkBNtWWmwjm")
+
+		invite = append(invite, organization)
+		invite = append(invite, invitation)
+		ctx.Redirect(http.StatusTemporaryRedirect, auth.AuthCodeURL(state, invite...))
+		//ctx.Redirect(http.StatusTemporaryRedirect, auth.AuthCodeURL(state))
 	}
 }
 
